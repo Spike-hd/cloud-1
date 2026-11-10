@@ -1,0 +1,8 @@
+---
+- name: Deploy NGINX
+  community.docker.docker_compose_v2:
+    project_src: /home/{{ ansible_user }}/cloud-1
+    services:
+      - nginx
+    state: present
+    dependencies: true

@@ -1,0 +1,18 @@
+---
+- name: Install Docker and Docker Compose
+  hosts: cloud
+  become: true
+
+  roles:
+    - role: docker
+      tags: [always]
+    - role: files
+      tags: [always]
+    - role: mariadb
+      tags: [mariadb]
+    - role: wordpress
+      tags: [wordpress]
+    - role: phpmyadmin
+      tags: [phpmyadmin]
+    - role: nginx
+      tags: [nginx]

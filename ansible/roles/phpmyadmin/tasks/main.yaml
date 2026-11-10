@@ -1,0 +1,8 @@
+---
+- name: Deploy phpMyAdmin
+  community.docker.docker_compose_v2:
+    project_src: /home/{{ ansible_user }}/cloud-1
+    services:
+      - phpmyadmin
+    state: present
+    dependencies: true

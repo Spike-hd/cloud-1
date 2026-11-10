@@ -1,0 +1,21 @@
+---
+- name: Create folder project
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/cloud-1"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+- name: Copy all necessary files for Docker Compose
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../{{ item }}"
+    dest: "/home/{{ ansible_user }}/cloud-1/"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+    directory_mode: '0755'
+  loop:
+    - docker-compose.yaml
+    - .env
+    - nginx

@@ -1,104 +1,74 @@
-# ==============================================================
-# SERVICES = la liste de tous les conteneurs qu'on veut lancer
-# ==============================================================
+# ----  Les différents services -----
+
 services:
-
-  # ─────────────── phpMyAdmin ───────────────
-  phpmyadmin:
-    image: phpmyadmin:fpm-alpine
-    container_name: phpmyadmin
-    restart: unless-stopped
-    depends_on:
-      - mariadb
-    environment:
-      - PMA_HOST=mariadb
-    volumes:
-      - phpmyadmin_data:/var/www/html
-    networks:
-      - cloud-1
-
-  # ─────────────── WORDPRESS ───────────────
-  wordpress:
-    image: wordpress:fpm-alpine
-    container_name: wordpress
-    restart: unless-stopped
-    depends_on:
-      - mariadb
-    environment:
-      WORDPRESS_DB_HOST: mariadb
-      WORDPRESS_DB_NAME: ${WP_DB_NAME}
-      WORDPRESS_DB_USER: ${WP_DB_USER}
-      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD}
-    volumes:
-      - wordpress_data:/var/www/html
-    networks:
-      - cloud-1
-
-  # ─────────────── MARIADB ───────────────
   mariadb:
-    image: mariadb:10.11
+    image: mariadb:lts
     container_name: mariadb
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: ${WP_DB_ROOT_PASSWORD}
-      MARIADB_DATABASE: ${WP_DB_NAME}
-      MARIADB_USER: ${WP_DB_USER}
-      MARIADB_PASSWORD: ${WP_DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${WP_DB_ROOT_PASSWORD:?missing root password for mariadb}
+      MARIADB_DATABASE: ${WP_DB_NAME:?missing mariadb database}
+      MARIADB_USER: ${WP_DB_USER:?missing mariadb user}
+      MARIADB_PASSWORD: ${WP_DB_PASSWORD:?missing mariadb password}
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - mariadb_volume:/var/lib/mysql
     networks:
       - cloud-1
 
-  # ─────────────── NGINX ───────────────
-  nginx:
+  wordpress:
+    image: wordpress:7.1.4-php8.2-fpm-alpine 
+    container_name: wordpress
+    restart: unless-stopped
+    environment:
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_USER: ${WP_DB_USER:?missing db user for wordpress}
+      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD:?missing db password for wordpress}
+      WORDPRESS_DB_NAME: ${WP_DB_NAME:?missing db name for wordpress}
+    volumes:
+      - wordpress_volume:/var/www/html
+    depends_on:
+      - mariadb
+    networks:
+      - cloud-1
 
+  phpmyadmin:
+    image: phpmyadmin:5.2.3-fpm-alpine
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+    volumes:
+      - phpmyadmin_files:/var/www/html
+    depends_on:
+      - mariadb
+    networks:
+      - cloud-1
+
+  nginx:
     build: ./nginx
     container_name: nginx
     restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
     depends_on:
       - wordpress
       - phpmyadmin
-    ports:
-      - "443:443"
-      - "80:80"
-      # - "22:22" -> le port SSH doit être accessible pour la VM pas pour Nginx
-
-    # NGINX a besoin d'accéder aux fichiers WordPress (pour les fichiers statiques : images, CSS, JS)
+      # NGINX a besoin d'accéder aux fichiers WordPress et phpMyAdmin (pour servir les fichiers statiques : images, CSS, JS)
     volumes:
-      - wordpress_data:/var/www/html/wordpress # NGINX doit pouvoir accéder aux fichiers de WordPress pour servir les pages web
-      - phpmyadmin_data:/var/www/html/phpmyadmin # NGINX doit pouvoir accéder aux fichiers de phpMyAdmin pour servir les pages web
+      - wordpress_volume:/var/www/html/wordpress:ro
+      - phpmyadmin_files:/var/www/html/phpmyadmin 
 
     networks:
       - cloud-1
 
-# ==============================================================
-# VOLUMES = les disques durs persistants
-# ==============================================================
+# ----  Les volumes (named volumes) -----
 volumes:
-  mariadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/data/mariadb # il faudra créer le dossier via Ansible avec les bonnes permissions avant de lancer le docker-compose 
+  mariadb_volume:
+  wordpress_volume:
+  phpmyadmin_files:
 
-  wordpress_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/data/wordpress # il faudra créer le dossier via Ansible avec les bonnes permissions avant de lancer le docker-compose 
-
-  phpmyadmin_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/data/phpmyadmin # il faudra créer le dossier via Ansible avec les bonnes permissions avant de lancer le docker-compose
-
-# ==============================================================
-# NETWORKS = les réseaux privés Docker
-# ==============================================================
+# ----  Le réseau -----
 networks:
   cloud-1:
-    driver: bridge
