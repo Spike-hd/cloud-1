@@ -6,3 +6,65 @@
       - wordpress
     state: present
     dependencies: true
+
+
+# --- Création du site WordPress et du compte admin si nécessaire ---
+
+# Au premier démarrage, le conteneur copie les fichiers WordPress et génère wp-config.php
+# register: wordpress_config -> permet de sauvegarder le résultat de la commande pour l'utiliser dans la condition "until"
+# .rc = return code
+- name: Wait for WordPress files (wp-config.php)
+  ansible.builtin.command: docker exec wordpress test -f /var/www/html/wp-config.php
+  register: wordpress_config
+  until: wordpress_config.rc == 0
+  retries: 10
+  delay: 2
+  changed_when: false
+
+# MariaDB peut mettre quelques secondes à accepter les connexions.
+# Au premier démarrage, l'image lance d'abord un serveur temporaire SANS réseau
+# (pour créer la base et l'utilisateur) : on teste donc via TCP (-h 127.0.0.1),
+# comme le fera WordPress, et pas via le socket local.
+- name: Wait for MariaDB to accept TCP connections
+  ansible.builtin.command: docker exec mariadb mariadb-admin ping -h 127.0.0.1
+  register: wordpress_db_ready
+  until: wordpress_db_ready.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+
+# rc 0 = déjà installé, rc 1 = pas installé OU base inaccessible.
+# On distingue les deux grâce au message d'erreur, et on réessaie si la base
+# n'est pas encore joignable, pour ne jamais lancer l'installation par erreur.
+- name: Check if WordPress is already installed
+  ansible.builtin.command:
+    argv: [docker, compose, run, --rm, -T, wpcli, wp, core, is-installed]
+    chdir: /home/{{ ansible_user }}/cloud-1
+  register: wordpress_installed
+  until: "'database connection' not in wordpress_installed.stderr"
+  retries: 10
+  delay: 3
+  failed_when: wordpress_installed.rc not in [0, 1]
+  changed_when: false
+
+- name: Install WordPress (site + admin account)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - run
+      - --rm
+      - -T
+      - wpcli
+      - wp
+      - core
+      - install
+      - "--url={{ wp_url }}"
+      - "--title={{ wp_title }}"
+      - "--admin_user={{ wp_admin_user }}"
+      - "--admin_password={{ wp_admin_password }}"
+      - "--admin_email={{ wp_admin_email }}"
+      - --skip-email
+    chdir: /home/{{ ansible_user }}/cloud-1
+  when: wordpress_installed.rc == 1
+  changed_when: true

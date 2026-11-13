@@ -1,0 +1,9 @@
+---
+# Les variables sont utilisées dans le playbook wordpress et n'ont pas besoin d'être dans le vault car elles ne contiennent pas de secrets.
+wp_url: "https://{{ inventory_hostname }}"
+wp_title: "Cloud-1"
+wp_admin_user: "hduflos"
+wp_admin_email: "test@example.fr"
+
+# Le mot de passe vient du vault (ansible/group_vars/cloud/vault.yaml)
+wp_admin_password: "{{ vault_wp_admin_password }}"

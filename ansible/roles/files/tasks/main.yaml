@@ -17,5 +17,13 @@
     directory_mode: '0755'
   loop:
     - docker-compose.yaml
-    - .env
     - nginx
+
+- name: Generate .env from Ansible Vault secrets
+  ansible.builtin.template:
+    src: env.j2
+    dest: "/home/{{ ansible_user }}/cloud-1/.env"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0600'
+  no_log: true

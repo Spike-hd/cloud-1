@@ -31,6 +31,21 @@ services:
     networks:
       - cloud-1
 
+  wpcli:
+    image: wordpress:cli-php8.2
+    profiles: ["tools"]
+    environment:
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_USER: ${WP_DB_USER:?missing db user for wordpress}
+      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD:?missing db password for wordpress}
+      WORDPRESS_DB_NAME: ${WP_DB_NAME:?missing db name for wordpress}
+    volumes:
+      - wordpress_volume:/var/www/html
+    depends_on:
+      - wordpress
+    networks:
+      - cloud-1
+
   phpmyadmin:
     image: phpmyadmin:5.2.3-fpm-alpine
     container_name: phpmyadmin
